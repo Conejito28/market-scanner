@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Intelligence Scanner</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3a;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --green: #00d4a0;
+    --red: #ff4d6d;
+    --orange: #ff9f1c;
+    --blue: #4da6ff;
+    --purple: #a855f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; direction: rtl; }
+
+  /* HEADER */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { font-size: 15px; font-weight: 700; color: var(--green); letter-spacing: 1px; }
+  .logo span { color: var(--text); }
+  .header-status { font-size: 11px; color: var(--muted); }
+
+  /* MAIN */
+  .main { max-width: 1400px; margin: 0 auto; padding: 16px 20px; }
+
+  /* TOOLBAR */
+  .toolbar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .tb-group { display: flex; flex-direction: column; gap: 4px; }
+  .tb-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  select, input[type=range] { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 12px; padding: 6px 10px; outline: none; cursor: pointer; }
+  select:focus { border-color: var(--green); }
+  .vol-val { color: var(--green); font-weight: 600; font-size: 13px; }
+  .btn-scan {
+    padding: 8px 24px;
+    background: var(--green);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    transition: opacity .15s;
+  }
+  .btn-scan:disabled { opacity: .4; cursor: default; }
+  .btn-scan:hover:not(:disabled) { opacity: .85; }
+
+  /* STATUS */
+  .status-bar {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--muted);
+    padding: 6px 0; min-height: 30px;
+  }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* SECTION */
+  .section { margin-bottom: 16px; }
+  .section-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 10px;
+  }
+  .layer-badge {
+    font-size: 9px; font-weight: 700;
+    padding: 2px 8px; border-radius: 99px;
+    background: var(--surface2); color: var(--muted);
+    border: 1px solid var(--border);
+    letter-spacing: .06em;
+  }
+  .section-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .section-sub { font-size: 11px; color: var(--muted); margin-right: auto; }
+
+  /* SECTOR GRID */
+  .sector-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+  .sector-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 13px;
+    cursor: pointer;
+    transition: border-color .15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .sector-chip::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0;
+    height: 2px; width: var(--bar, 0%);
+    background: var(--bar-color, var(--green));
+    transition: width .5s ease;
+  }
+  .sector-chip.hot { border-color: var(--red); }
+  .sector-chip.warm { border-color: var(--orange); }
+  .sector-chip:hover { border-color: var(--muted); }
+  .chip-name { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+  .chip-etf { font-size: 10px; color: var(--muted); }
+  .chip-chg { font-size: 11px; font-weight: 600; margin-top: 4px; }
+  .chip-flow { font-size: 10px; margin-top: 2px; }
+  .chip-surge { font-size: 10px; color: var(--muted); }
+
+  /* STOCK TABLE */
+  .table-wrap { overflow-x: auto; }
+  .stock-table { width: 100%; border-collapse: collapse; }
+  .stock-table th {
+    font-size: 10px; color: var(--muted);
+    padding: 7px 10px; text-align: right;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500; white-space: nowrap;
+    background: var(--surface);
+  }
+  .stock-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid rgba(42,42,58,.5);
+    font-size: 12px;
+    white-space: nowrap;
+    transition: background .1s;
+  }
+  .stock-table tr:hover td { background: var(--surface2); cursor: pointer; }
+  .stock-table tr:last-child td { border-bottom: none; }
+
+  /* BADGES */
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 600;
+    padding: 2px 7px; border-radius: 99px;
+  }
+  .badge-explosive { background: rgba(255,77,109,.15); color: var(--red); border: 1px solid rgba(255,77,109,.3); }
+  .badge-hot       { background: rgba(255,159,28,.15); color: var(--orange); border: 1px solid rgba(255,159,28,.3); }
+  .badge-warm      { background: rgba(0,212,160,.15); color: var(--green); border: 1px solid rgba(0,212,160,.3); }
+
+  /* SCORE BAR */
+  .score-wrap { display: flex; align-items: center; gap: 6px; }
+  .score-num { font-weight: 700; font-size: 13px; min-width: 28px; }
+  .score-bg { width: 50px; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  .score-fill { height: 100%; border-radius: 2px; }
+
+  /* CATALYST */
+  .cat-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 14px;
+    margin-bottom: 8px;
+  }
+  .cat-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .cat-symbol { font-size: 14px; font-weight: 700; }
+  .cat-news { margin-bottom: 5px; }
+  .cat-headline { font-size: 11px; color: var(--muted); margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kw-tag {
+    display: inline-block; font-size: 10px;
+    padding: 1px 7px; border-radius: 99px;
+    background: rgba(0,212,160,.1); color: var(--green);
+    border: 1px solid rgba(0,212,160,.25);
+    margin: 2px 2px 0 0;
+  }
+
+  /* TOP SCORES */
+  .scores-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+  }
+  .score-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 13px;
+    cursor: pointer;
+    transition: border-color .15s, transform .1s;
+  }
+  .score-card:hover { border-color: var(--muted); transform: translateY(-1px); }
+  .score-big { font-size: 30px; font-weight: 700; line-height: 1; }
+  .score-symbol { font-size: 14px; font-weight: 600; margin-top: 5px; }
+  .score-meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .score-label { font-size: 9px; font-weight: 700; letter-spacing: .08em; margin-top: 4px; }
+
+  /* DETAIL PANEL */
+  .detail-panel {
+    background: var(--surface);
+    border: 1px solid var(--green);
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 12px;
+    animation: fadeIn .2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .detail-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+  .detail-symbol { font-size: 22px; font-weight: 700; }
+  .detail-name { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .detail-sector { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+  .stat-box {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+  }
+  .stat-val { font-size: 16px; font-weight: 700; }
+  .stat-lbl { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .w52-bar-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .w52-bar-bg { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .w52-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--green), var(--orange)); }
+  .desc { font-size: 11px; color: var(--muted); line-height: 1.7; margin-bottom: 12px; }
+  .btn-close {
+    padding: 6px 14px; font-size: 12px;
+    background: var(--surface2); color: var(--muted);
+    border: 1px solid var(--border); border-radius: 8px;
+    cursor: pointer;
+  }
+  .btn-close:hover { color: var(--text); }
+
+  /* CARD WRAPPER */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+
+  .green { color: var(--green); }
+  .red   { color: var(--red); }
+  .orange { color: var(--orange); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">MARKET<span>INTEL</span> 🔭</div>
+  <div class="header-status" id="header-status">מוכן לסריקה</div>
+</div>
+
+<div class="main">
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="tb-group">
+      <span class="tb-label">סקטור</span>
+      <select id="ssel">
+        <option value="all">כל הסקטורים</option>
+        <option value="XLK">Technology (XLK)</option>
+        <option value="XLV">Healthcare (XLV)</option>
+        <option value="XLE">Energy (XLE)</option>
+        <option value="SOXX">Semiconductors (SOXX)</option>
+        <option value="ITA">Defense &amp; Aerospace (ITA)</option>
+        <option value="XBI">Biotech (XBI)</option>
+        <option value="XLF">Financial (XLF)</option>
+        <option value="XLY">Consumer Disc. (XLY)</option>
+        <option value="ARKK">Innovation (ARKK)</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">Volume Surge מינימום: <span class="vol-val" id="vout">2x</span></span>
+      <input type="range" id="vr" min="1" max="4" step="1" value="2" style="width:100px">
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">תוצאות מקסימום</span>
+      <select id="mr">
+        <option value="5">5 מניות</option>
+        <option value="10" selected>10 מניות</option>
+        <option value="20">20 מניות</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">מיין לפי</span>
+      <select id="sortby">
+        <option value="score">Explosion Score</option>
+        <option value="surge">Volume Surge</option>
+        <option value="chg">% שינוי</option>
+      </select>
+    </div>
+    <button class="btn-scan" id="sbtn" onclick="startScan()">⚡ SCAN NOW</button>
+  </div>
+
+  <!-- STATUS -->
+  <div class="status-bar" id="sta"></div>
+
+  <!-- LAYER 1 -->
+  <div class="section" id="l1" style="display:none">
+    <div class="section-header">
+      <span class="layer-badge">LAYER 1</span>
+      <span class="section-title">Sector Heat Map — Money Flow</span>
+      <span class="section-sub">איפה הכסף זורם עכשיו</span>
+    </div>
+    <div class="sector-grid" id="l1-content"></div>
+  </div>
+
+  <!-- LAYER 2 -->
+  <div class="section" id="l2" style="display:none">
+    <div class="section-header">
+      <span class="layer-badge">LAYER 2</span>
+      <span class="section-title">Stock Scanner — Volume Anomaly + Breakout</span>
+      <span class="section-sub" id="l2-count"></span>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="stock-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>סימול</th>
+              <th>שם החברה</th>
+              <th>מחיר</th>
+              <th>שינוי %</th>
+              <th>Volume Surge</th>
+              <th>Market Cap</th>
+              <th>52W Position</th>
+              <th>Explosion Score</th>
+              <th>קטליסט</th>
+            </tr>
+          </thead>
+          <tbody id="l2-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL PANEL -->
+  <div id="detail-panel"></div>
+
+  <!-- LAYER 3 -->
+  <div class="section" id="l3" style="display:none">
+    <div class="section-header">
+      <span class="layer-badge">LAYER 3</span>
+      <span class="section-title">Catalyst Detector — חדשות + מילות מפתח</span>
+      <span class="section-sub">זיהוי אוטומטי של קטליסטים לפני הפיצוץ</span>
+    </div>
+    <div id="l3-content"></div>
+  </div>
+
+  <!-- LAYER 4 -->
+  <div class="section" id="l4" style="display:none">
+    <div class="section-header">
+      <span class="layer-badge">LAYER 4</span>
+      <span class="section-title">Explosion Score — Top Candidates</span>
+      <span class="section-sub">הניקוד המשולב 0–100</span>
+    </div>
+    <div class="scores-grid" id="l4-content"></div>
+  </div>
+
+</div>
+
+<script>
+const VL = {1:'1.5x', 2:'2x', 3:'3x', 4:'5x'};
+const VV = {1:1.5,   2:2,   3:3,   4:5};
+
+const SECS = [
+  {etf:'XLK', name:'Technology',     stocks:['NVDA','MSFT','AAPL','META','AVGO','AMD','ORCL','CRM','ADBE','QCOM','PLTR','SNOW']},
+  {etf:'XLV', name:'Healthcare',     stocks:['LLY','UNH','JNJ','ABBV','MRK','TMO','ABT','DHR','AMGN','ISRG','DXCM','MRNA']},
+  {etf:'XLE', name:'Energy',         stocks:['XOM','CVX','COP','EOG','SLB','MPC','PSX','VLO','OXY','HAL','DVN','FANG']},
+  {etf:'SOXX',name:'Semiconductors', stocks:['NVDA','AMD','AVGO','QCOM','AMAT','LRCX','KLAC','MRVL','ON','MPWR','WOLF','CREE']},
+  {etf:'ITA', name:'Defense',        stocks:['RTX','LMT','NOC','GD','BA','HII','LDOS','CACI','SAIC','TDG','AXON','KTOS']},
+  {etf:'XBI', name:'Biotech',        stocks:['MRNA','REGN','VRTX','BIIB','ALNY','INCY','BMRN','EXEL','ITCI','RCKT','ACAD','IONS']},
+  {etf:'XLF', name:'Financial',      stocks:['JPM','BAC','WFC','GS','MS','BLK','AXP','SCHW','USB','PNC','COIN','HOOD']},
+  {etf:'XLY', name:'Consumer Disc.', stocks:['AMZN','TSLA','HD','MCD','NKE','SBUX','LOW','TGT','BKNG','CMG','DKNG','PENN']},
+  {etf:'ARKK',name:'Innovation',     stocks:['TSLA','ROKU','SQ','TDOC','PATH','COIN','HOOD','AFRM','EXAS','PACB','TWLO','ZM']}
+];
+
+const CATALYST_KW = [
+  'partnership','collaboration','agreement','deal','fda','contract','awarded',
+  'acquisition','merger','approval','license','breakthrough','milestone',
+  'guidance','raised','upgraded','beat','record','launch','expands','wins'
+];
+
+let DATA = [];
+
+// Range slider
+document.getElementById('vr').addEventListener('input', function() {
+  document.getElementById('vout').textContent = VL[this.value];
+});
+
+// API call — goes through Vercel serverless function, no CORS
+async function fmp(path) {
+  const encoded = encodeURIComponent(path);
+  const res = await fetch(`/api/fmp?path=${encoded}`);
+  if (!res.ok) throw new Error('API error ' + res.status);
+  const data = await res.json();
+  if (data['Error Message']) throw new Error(data['Error Message']);
+  return data;
+}
+
+function setStatus(msg, loading = false) {
+  const el = document.getElementById('sta');
+  const hs = document.getElementById('header-status');
+  if (!msg) { el.innerHTML = ''; hs.textContent = 'מוכן'; return; }
+  el.innerHTML = `<div class="status-bar">${loading ? '<div class="spinner"></div>' : '⚡'} ${msg}</div>`;
+  hs.textContent = msg;
+}
+
+function scoreColor(s) {
+  if (s >= 75) return 'var(--red)';
+  if (s >= 50) return 'var(--orange)';
+  return 'var(--green)';
+}
+
+function scoreBadge(s) {
+  if (s >= 75) return `<span class="badge badge-explosive">EXPLOSIVE</span>`;
+  if (s >= 50) return `<span class="badge badge-hot">HOT</span>`;
+  return `<span class="badge badge-warm">WARM</span>`;
+}
+
+function capStr(cap) {
+  if (!cap) return '—';
+  if (cap >= 1e12) return (cap/1e12).toFixed(1) + 'T';
+  if (cap >= 1e9)  return (cap/1e9).toFixed(1) + 'B';
+  return (cap/1e6).toFixed(0) + 'M';
+}
+
+async function startScan() {
+  const btn = document.getElementById('sbtn');
+  btn.disabled = true;
+  ['l1','l2','l3','l4'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.getElementById('detail-panel').innerHTML = '';
+  DATA = [];
+
+  const sel = document.getElementById('ssel').value;
+  const vm  = VV[document.getElementById('vr').value];
+  const mr  = parseInt(document.getElementById('mr').value);
+  const sortby = document.getElementById('sortby').value;
+  const secs = sel === 'all' ? SECS : SECS.filter(s => s.etf === sel);
+
+  try {
+    await doLayer1(secs);
+    await doLayer2(secs, vm, mr, sortby);
+    await doLayer3();
+    doLayer4();
+  } catch(e) {
+    setStatus('❌ שגיאה: ' + e.message);
+  }
+
+  btn.disabled = false;
+  setStatus('');
+}
+
+/* ══ LAYER 1: Sector Heat Map ══ */
+async function doLayer1(secs) {
+  setStatus('Layer 1 — טוען נתוני סקטורים...', true);
+  let quotes = [];
+  try {
+    quotes = await fmp('/quote/' + secs.map(s => s.etf).join(','));
+  } catch(e) {}
+
+  const qm = {};
+  (Array.isArray(quotes) ? quotes : []).forEach(q => qm[q.symbol] = q);
+
+  let html = '';
+  secs.forEach(s => {
+    const q = qm[s.etf] || {};
+    const chg   = q.changesPercentage || 0;
+    const vol   = q.volume || 0;
+    const avg   = q.avgVolume || 1;
+    const surge = vol / avg;
+    const hot   = surge >= 1.5 && chg > 0;
+    const warm  = !hot && (surge >= 1.2 || chg > 0.5);
+    const barPct = Math.min(100, Math.round(surge * 40));
+    const barColor = hot ? 'var(--red)' : warm ? 'var(--orange)' : 'var(--green)';
+    const chgColor = chg >= 0 ? 'var(--green)' : 'var(--red)';
+
+    html += `
+    <div class="sector-chip ${hot?'hot':warm?'warm':''}"
+         style="--bar:${barPct}%;--bar-color:${barColor}"
+         onclick="document.getElementById('ssel').value='${s.etf}'">
+      <div class="chip-name">${s.name}</div>
+      <div class="chip-etf">${s.etf}</div>
+      <div class="chip-chg" style="color:${chgColor}">${chg>=0?'+':''}${chg.toFixed(2)}%</div>
+      <div class="chip-flow">${hot
+        ? '<span style="color:var(--red);font-weight:700">💰 MONEY IN</span>'
+        : warm
+        ? '<span style="color:var(--orange)">↑ warming</span>'
+        : '<span style="color:var(--muted)">neutral</span>'}</div>
+      <div class="chip-surge" style="color:${barColor}">${surge.toFixed(1)}x volume</div>
+    </div>`;
+  });
+
+  document.getElementById('l1-content').innerHTML = html;
+  document.getElementById('l1').style.display = 'block';
+}
+
+/* ══ LAYER 2: Stock Scanner ══ */
+async function doLayer2(secs, vm, mr, sortby) {
+  setStatus('Layer 2 — סורק מניות...', true);
+  const allStocks = [...new Set(secs.flatMap(s => s.stocks))];
+  let quotes = [];
+  for (let i = 0; i < allStocks.length; i += 20) {
+    try {
+      const chunk = allStocks.slice(i, i+20);
+      const d = await fmp('/quote/' + chunk.join(','));
+      if (Array.isArray(d)) quotes = quotes.concat(d);
+    } catch(e) {}
+  }
+
+  DATA = quotes.map(q => {
+    const surge  = (q.volume||0) / (q.avgVolume||1);
+    const chg    = q.changesPercentage || 0;
+    const cap    = q.marketCap || 0;
+    const w52pos = q.yearHigh > 0
+      ? Math.round((q.price - q.yearLow) / (q.yearHigh - q.yearLow) * 100)
+      : 50;
+    const smallBonus = cap < 500e6 ? 20 : cap < 2e9 ? 12 : cap < 10e9 ? 6 : 0;
+    const score = Math.min(100, Math.round(
+      Math.min(35, surge * 7) +
+      Math.min(25, Math.abs(chg) * 4) +
+      Math.min(15, w52pos * 0.15) +
+      smallBonus + 5
+    ));
+    return { ...q, surge, score, w52pos, catalysts: 0, catNews: [] };
+  })
+  .filter(q => q.surge >= vm)
+  .sort((a, b) => {
+    if (sortby === 'surge') return b.surge - a.surge;
+    if (sortby === 'chg')   return Math.abs(b.changesPercentage) - Math.abs(a.changesPercentage);
+    return b.score - a.score;
+  })
+  .slice(0, mr);
+
+  renderTable();
+  document.getElementById('l2-count').textContent = `${DATA.length} מניות נמצאו`;
+  document.getElementById('l2').style.display = 'block';
+}
+
+function renderTable() {
+  const tbody = document.getElementById('l2-tbody');
+  tbody.innerHTML = DATA.map((q, i) => {
+    const chgColor = q.changesPercentage >= 0 ? 'var(--green)' : 'var(--red)';
+    const sc = q.score;
+    const bc = scoreColor(sc);
+    const catBadge = q.catalysts > 0
+      ? `<span class="kw-tag">🔥 ${q.catalysts}</span>`
+      : '<span style="color:var(--muted)">—</span>';
+
+    return `<tr onclick="showDetail(${i})">
+      <td class="muted">${i+1}</td>
+      <td style="font-weight:700;font-size:13px">${q.symbol}</td>
+      <td class="muted" style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis">${(q.name||'').substring(0,22)}</td>
+      <td style="font-weight:600">$${q.price?.toFixed(2)||'—'}</td>
+      <td style="color:${chgColor};font-weight:600">${q.changesPercentage>=0?'+':''}${q.changesPercentage?.toFixed(2)||0}%</td>
+      <td>${scoreBadge(sc).replace(/EXPLOSIVE|HOT|WARM/,'').trim()} <span style="color:${bc};font-weight:700">${q.surge.toFixed(1)}x</span></td>
+      <td class="muted">${capStr(q.marketCap)}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="width:60px;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden">
+            <div style="width:${q.w52pos}%;height:100%;background:linear-gradient(90deg,var(--green),var(--orange));border-radius:2px"></div>
+          </div>
+          <span class="muted" style="font-size:10px">${q.w52pos}%</span>
+        </div>
+      </td>
+      <td>
+        <div class="score-wrap">
+          <span class="score-num" style="color:${bc}">${sc}</span>
+          <div class="score-bg"><div class="score-fill" style="width:${sc}%;background:${bc}"></div></div>
+        </div>
+      </td>
+      <td>${catBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ══ LAYER 3: Catalyst Detector ══ */
+async function doLayer3() {
+  if (!DATA.length) return;
+  setStatus('Layer 3 — מחפש קטליסטים בחדשות...', true);
+
+  let html = '';
+  for (const stock of DATA.slice(0, 8)) {
+    try {
+      const news = await fmp(`/stock_news?tickers=${stock.symbol}&limit=10`);
+      if (!Array.isArray(news) || !news.length) continue;
+
+      const found = [];
+      news.forEach(n => {
+        const txt = ((n.title||'') + ' ' + (n.text||'')).toLowerCase();
+        const hits = CATALYST_KW.filter(kw => txt.includes(kw));
+        if (hits.length) found.push({ headline: n.title, kws: hits, url: n.url, date: n.publishedDate });
+      });
+      if (!found.length) continue;
+
+      const idx = DATA.findIndex(s => s.symbol === stock.symbol);
+      if (idx >= 0) {
+        DATA[idx].catalysts = found.reduce((a, f) => a + f.kws.length, 0);
+        DATA[idx].catNews   = found;
+      }
+
+      const sc = stock.score;
+      html += `<div class="cat-item">
+        <div class="cat-header">
+          <span class="cat-symbol">${stock.symbol}</span>
+          ${scoreBadge(sc)}
+          <span class="muted" style="font-size:11px">${found.length} catalyst${found.length>1?'s':''} זוהו</span>
+          <span class="muted" style="margin-right:auto;font-size:11px">$${stock.price?.toFixed(2)}</span>
+        </div>`;
+      found.slice(0, 3).forEach(f => {
+        html += `<div class="cat-news">
+          <div class="cat-headline" title="${f.headline}">${f.headline}</div>
+          <div>${f.kws.map(k => `<span class="kw-tag">${k}</span>`).join('')}</div>
+        </div>`;
+      });
+      html += `</div>`;
+    } catch(e) {}
+  }
+
+  document.getElementById('l3-content').innerHTML = html || '<div class="muted" style="padding:10px">לא נמצאו קטליסטים ברורים בסריקה הנוכחית</div>';
+  document.getElementById('l3').style.display = 'block';
+
+  // Update table with catalyst counts
+  renderTable();
+}
+
+/* ══ LAYER 4: Top Scores ══ */
+function doLayer4() {
+  if (!DATA.length) return;
+  const top = [...DATA].sort((a,b) => b.score - a.score).slice(0, 10);
+  const html = top.map(s => {
+    const sc = s.score;
+    const c  = scoreColor(sc);
+    const lbl = sc >= 75 ? 'EXPLOSIVE' : sc >= 50 ? 'HOT' : 'WARM';
+    return `<div class="score-card" onclick="showDetail(${DATA.indexOf(s)})">
+      <div class="score-big" style="color:${c}">${sc}</div>
+      <div class="score-symbol">${s.symbol}</div>
+      <div class="score-meta">${s.surge.toFixed(1)}x vol · ${s.changesPercentage>=0?'+':''}${s.changesPercentage?.toFixed(1)}%</div>
+      <div class="score-label" style="color:${c}">${lbl}</div>
+      ${s.catalysts > 0 ? `<div style="margin-top:5px"><span class="kw-tag">🔥 ${s.catalysts} cats</span></div>` : ''}
+    </div>`;
+  }).join('');
+  document.getElementById('l4-content').innerHTML = html;
+  document.getElementById('l4').style.display = 'block';
+}
+
+/* ══ DETAIL PANEL ══ */
+async function showDetail(idx) {
+  const s = DATA[idx];
+  if (!s) return;
+
+  const panel = document.getElementById('detail-panel');
+  panel.innerHTML = `<div class="detail-panel"><div class="status-bar"><div class="spinner"></div> טוען פרטים עבור ${s.symbol}...</div></div>`;
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  let profile = {};
+  try {
+    const pr = await fmp(`/profile/${s.symbol}`);
+    if (Array.isArray(pr) && pr[0]) profile = pr[0];
+  } catch(e) {}
+
+  const sc = s.score;
+  const c  = scoreColor(sc);
+  const chgColor = s.changesPercentage >= 0 ? 'var(--green)' : 'var(--red)';
+
+  let catHtml = '';
+  if (s.catNews && s.catNews.length > 0) {
+    catHtml = `<div style="margin-top:12px">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">קטליסטים שזוהו</div>`;
+    s.catNews.slice(0, 3).forEach(n => {
+      catHtml += `<div class="cat-news" style="margin-bottom:6px">
+        <div class="cat-headline">${n.headline}</div>
+        <div>${n.kws.map(k=>`<span class="kw-tag">${k}</span>`).join('')}</div>
+      </div>`;
+    });
+    catHtml += '</div>';
+  }
+
+  panel.innerHTML = `<div class="detail-panel">
+    <div class="detail-top">
+      <div>
+        <div class="detail-symbol">${s.symbol} ${scoreBadge(sc)}</div>
+        <div class="detail-name">${profile.companyName || s.name || ''}</div>
+        <div class="detail-sector">${profile.sector||''} · ${profile.exchange||''} · ${profile.country||''}</div>
+      </div>
+      <div style="text-align:left">
+        <div class="score-big" style="color:${c};font-size:36px">${sc}</div>
+        <div style="font-size:10px;color:var(--muted)">EXPLOSION SCORE</div>
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-box">
+        <div class="stat-val">$${s.price?.toFixed(2)||'—'}</div>
+        <div class="stat-lbl">מחיר נוכחי</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" style="color:${chgColor}">${s.changesPercentage>=0?'+':''}${s.changesPercentage?.toFixed(2)||0}%</div>
+        <div class="stat-lbl">שינוי יומי</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" style="color:var(--red)">${s.surge.toFixed(1)}x</div>
+        <div class="stat-lbl">Volume Surge</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val">${capStr(s.marketCap)}</div>
+        <div class="stat-lbl">Market Cap</div>
+      </div>
+    </div>
+
+    <div class="w52-bar-wrap">
+      <span class="muted" style="font-size:10px;white-space:nowrap">52W Low $${(s.yearLow||0).toFixed(2)}</span>
+      <div class="w52-bar-bg">
+        <div class="w52-bar-fill" style="width:${s.w52pos}%"></div>
+      </div>
+      <span class="muted" style="font-size:10px;white-space:nowrap">High $${(s.yearHigh||0).toFixed(2)}</span>
+      <span style="font-size:11px;color:${c};font-weight:600">${s.w52pos}%</span>
+    </div>
+
+    ${profile.description ? `<div class="desc">${profile.description.substring(0, 350)}...</div>` : ''}
+    ${catHtml}
+
+    <button class="btn-close" onclick="document.getElementById('detail-panel').innerHTML=''">✕ סגור</button>
+  </div>`;
+}
+</script>
+</body>
+</html>
